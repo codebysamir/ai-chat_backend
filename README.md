@@ -1,0 +1,1 @@
+Node.js server to send request to the openai API.
