@@ -25,3 +25,6 @@ dist-ssr
 
 # ENV File
 .env
+
+#images folder
+images
