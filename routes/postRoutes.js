@@ -42,4 +42,30 @@ router.route('/').post(async(req, res) => {
     }
 })
 
+// DELETE A POST
+router.route('/delete').post(async (req, res) => {
+    try {
+        const { prompt, photo, photoId } = req.body
+        const deletePost = await Post.find({ photo })
+        const { _id: postId } = deletePost[0]
+        console.log(postId)
+
+        const deletePostId = await Post.deleteOne({ _id: postId })
+        console.log(deletePostId)
+
+        // const findPublicId = await cloudinary.search
+        // .expression(photoId)
+        // .sort_by('public_id', 'desc')
+        // .execute()
+        // console.log(findPublicId)
+
+        const deletePublicId = await cloudinary.uploader.destroy(photoId)
+        console.log(deletePublicId)
+
+        res.status(201).json({success: true, message: 'image deleted', data: {deletePostId, deletePublicId}})
+    } catch (error) {
+        res.status(500).json({ success: false, errMessage: error})
+    }
+})
+
 module.exports = router

@@ -26,6 +26,79 @@ router.route('/').get((req, res) => {
     res.send('Dall-E Route is working')
 })
 
+router.route('/chat').post(async (req, res) => {
+  // Get the message from the request body
+  const {message, chatHistory} = req.body;
+  // console.log(message)
+
+  const systemContent = `The following is a conversation with an AI Teacher. You are a helpful and very kind Teacher that knows everything about the world and the given topics. 
+  You explain, describe and teach topics and questions in an easy and understandable way so that a 7 year old child would understand it. 
+  You answer the question truthfully, precisely, plus give extra information to the answer and offer follow-up question or suggestions to spur curiosity.
+  You maintain a cool, entertaining and professional ton.
+  You avoid questions or sentences if it is inappropriate for kids. 
+  You always reply in the same language as the question.`
+  
+  const userResponse = () => {
+    if (chatHistory) {
+      return [
+        ...chatHistory,
+      {
+        role: 'user',
+        content: message
+      }]
+    } else {
+      return [{
+        role: 'user',
+        content: message
+      }]
+    }
+  }
+
+  console.log(...userResponse())
+
+  // Send the message to the API and get the response
+  try {
+    const response = await openai.createChatCompletion({
+      model: "gpt-3.5-turbo",
+      messages: [
+        {
+          role: 'system', 
+          content: systemContent
+        },
+        {
+          role: 'assistant',
+          content: 'Hello how can i help you?'
+        },
+        {
+          role: 'user',
+          content: 'In which way can you help me?'
+        },
+        {
+          role: 'assistant',
+          content: 'I can help you with every topic, just ask me a Question or tell me whats on your mind.'
+        },
+        ...userResponse()
+      ],
+      // max_tokens: 500,
+      temperature: 0.8,
+      stream: false,
+    });
+
+    // Send the response back to the client
+
+    console.log(response.data.choices[0] || response.data.error)
+    console.log(response.data.usage)
+    // res.write(response.data)
+    res.status(200).json({
+      message: response.data.choices[0].message.content,
+      tokens: response.data.usage.total_tokens
+    })
+  } catch (err) {
+    console.log('Catch Error is: ' + err)
+    res.status(500).send(err?.response.data.error.message)
+  }
+});
+
 router.route('/message').post(async (req, res) => {
   // Get the message from the request body
   const message = req.body.message;
@@ -60,7 +133,7 @@ router.route('/message').post(async (req, res) => {
     })
   } catch (err) {
     console.log('Catch Error is: ' + err)
-    res.status(500).res.send(err?.response.data.error.message)
+    res.status(500).send(err?.response.data.error.message)
   }
 });
   
@@ -81,14 +154,18 @@ router.route('/image').post(async (req, res) => {
 
     // Send the response back to the client
 
+    console.log(response.data)
+
     const image_url = response.data.data[0].b64_json;
+    const image_id = response.data.created;
     res.status(200).json({
     message: image_url,
+    created: image_id
     // tokens: response.data.usage.total_tokens
     })
   } catch (err) {
     console.log('Catch Error is: ' + err)
-    res.status(500).res.send(err?.response.data.error.message)
+    res.status(500).send(err?.response.data.error.message)
   }
 });
 
@@ -133,7 +210,7 @@ router.route('/upload').post(
   } catch (err) {
     console.log(err.response.data)
     console.log('Catch Error is: ' + err)
-    res.status(500).res.send(err?.response.data.error.message)
+    res.status(500).send(err?.response.data.error.message)
   }
   
 });
