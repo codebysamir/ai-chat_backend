@@ -5,16 +5,43 @@ const cors = require('cors')
 const fs = require('fs')
 const path = require('path')
 const fileUpload = require('express-fileupload')
+const { createFFmpeg, fetchFile } = require('@ffmpeg/ffmpeg');
+// Initialize ffmpeg
+const ffmpeg = createFFmpeg({ log: true });
+const stream = require('stream')
+const multer = require('multer')
 const app = express()
 app.use(cors())
-
 dotenv.config()
+// const storage = multer.memoryStorage();
+// Configure multer to use the disk storage engine and save files to the "uploads" directory
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'voiceUploads');
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + '-' + file.originalname);
+  }
+});
+const upload = multer({ storage });
 
 const fileExistsChecker = require('../middleware/fileExistsChecker')
 const fileSizeLimitChecker = require('../middleware/fileSizeLimitChecker')
 const fileTypeChecker = require('../middleware/fileTypeChecker')
 
 const router = express.Router()
+
+function clearFolder(folderPath) {
+  fs.readdirSync(folderPath).forEach(file => {
+    const curPath = path.join(folderPath, file);
+    if (fs.statSync(curPath).isDirectory()) { // recurse
+      clearFolder(curPath);
+      fs.rmdirSync(curPath);
+    } else { // delete file
+      fs.unlinkSync(curPath);
+    }
+  });
+};
 
 const configuration = new Configuration({
     organization: process.env.ORG_KEY,
@@ -213,6 +240,36 @@ router.route('/upload').post(
     res.status(500).send(err?.response.data.error.message)
   }
   
+});
+
+router.route('/stt').post(upload.single('audio'), async (req, res) => {
+// Get the saved file path from the req.file object
+console.log(req.file)
+const audioFilePath = req.file.path;
+
+// Create a ReadableStream object from the saved file using fs.createReadStream()
+const audioStream = fs.createReadStream(audioFilePath);
+  
+  try {
+    const response = await openai.createTranscription(
+      audioStream,
+      "whisper-1"
+    );
+
+    // Send the response back to the client
+
+    console.log(response.data)
+
+    const speechToText = response.data.text;
+    res.status(200).json({
+    message: speechToText,
+    // tokens: response.data.usage.total_tokens
+    })
+  } catch (err) {
+    console.log('Catch Error is: ' + err)
+    res.status(500).send(err?.response.data.error.message)
+  }
+  clearFolder('./voiceUploads')
 });
 
 module.exports = router
